@@ -13,7 +13,11 @@ def jar_manifest(jar_stream)
   begin
     manifest = {}
     last=nil
+    int i = 0
     Zip::File.open_buffer(jar_stream) do |jar_file|
+       jar_file.glob("META-INF/MANIFEST.MF") do |entry|
+        i++
+      end
       jar_file.get_entry("META-INF/MANIFEST.MF").get_input_stream do |man_stream|
         man_stream.each_line do |line|
           case line.chomp!
@@ -33,6 +37,7 @@ def jar_manifest(jar_stream)
     end
     return manifest
   rescue Errno::ENOENT
+    puts i
     raise NoManifestError
   end
 end
@@ -50,7 +55,6 @@ def war_libs(war_stream)
             yield jar_name, jar_manifest(jar_file)
           rescue NoManifestError
             $stderr.puts "#{jar_name} has no manifest, ignoring"
-            gets
           end
         end
       end
