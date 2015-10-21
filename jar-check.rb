@@ -10,14 +10,12 @@ class BadManifestError < StandardError
 end
 
 def jar_manifest(jar_stream)
+  i = 0
   begin
     manifest = {}
     last=nil
-    int i = 0
     Zip::File.open_buffer(jar_stream) do |jar_file|
-       jar_file.glob("META-INF/MANIFEST.MF") do |entry|
-        i++
-      end
+      i = jar_file.glob("*").size
       jar_file.get_entry("META-INF/MANIFEST.MF").get_input_stream do |man_stream|
         man_stream.each_line do |line|
           case line.chomp!
