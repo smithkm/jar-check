@@ -78,7 +78,7 @@ def check_war(path, rules)
       end
     end
   end
-  return failed
+  return !failed
 end
 
 #RULES = {
