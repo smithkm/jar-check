@@ -3,17 +3,38 @@
 require 'rubygems'
 require 'zip'
 
+class NoManifestError < StandardError
+end
+
+class BadManifestError < StandardError
+end
+
 def jar_manifest(jar_stream)
-  manifest = {}
-  Zip::File.open_buffer(jar_stream) do |jar_file|
-    jar_file.get_entry("META-INF/MANIFEST.MF").get_input_stream do |man_stream|
-      man_stream.each_line do |line|
-        /^([^:]+): (.*)$/ =~ line.chomp!
-        manifest[$1]=$2
+  begin
+    manifest = {}
+    last=nil
+    Zip::File.open_buffer(jar_stream) do |jar_file|
+      jar_file.get_entry("META-INF/MANIFEST.MF").get_input_stream do |man_stream|
+        man_stream.each_line do |line|
+          case line.chomp!
+          when /^\s*$/
+            # Do nothing
+          when /^([^:]+): (.*)$/
+            manifest[$1]=$2
+            last=$1
+          when /^ (.*)$/
+            raise BadManifestError, "Manifest continuation can not be first line" if last.nil?
+            manifest[last]+=$1
+          else
+            raise BadManifestError, "Manifest contains invalid line: #{line}"
+          end
+        end
       end
     end
+    return manifest
+  rescue Errno::ENOENT
+    raise NoManifestError
   end
-  return manifest
 end
 
 WAR_LIB_PATH = "WEB-INF/lib/"
@@ -22,10 +43,15 @@ def war_libs(war_stream)
   Zip::File.open_buffer(war_stream) do |war_file|
     war_file.glob("#{WAR_LIB_PATH}*.jar") do |jar_entry|
       if /^#{WAR_LIB_PATH}(.*?).jar$/ =~ jar_entry.name
-        jar_name = $1
+        jar_name=$1
         Tempfile.open(jar_name) do |jar_file|
-          jar_entry.extract(jar_file.path) {true}
-          yield jar_name, jar_manifest(jar_file)
+          begin
+            jar_entry.extract(jar_file.path) {true}
+            yield jar_name, jar_manifest(jar_file)
+          rescue NoManifestError
+            $stderr.puts "#{jar_name} has no manifest, ignoring"
+            gets
+          end
         end
       end
     end
@@ -33,6 +59,7 @@ def war_libs(war_stream)
 end
 
 def check_war(path, rules)
+  failed = false
   open(path) do |war_stream|
     war_libs(war_stream) do |jar_name, manifest|
       rules.each do |pattern, restrictions|
@@ -41,13 +68,15 @@ def check_war(path, rules)
             if restriction === manifest[key]
               # OK
             else
-              puts "#{jar_name} #{key} expected to be #{restriction} but was #{manifest[key]}"
+              $stderr.puts "#{jar_name} #{key} expected to be #{restriction} but was #{manifest[key]}"
+              failed = true
             end
           end
         end
       end
     end
   end
+  return failed
 end
 
 #RULES = {
