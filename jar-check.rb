@@ -9,6 +9,8 @@ end
 class BadManifestError < StandardError
 end
 
+$showPasses = false
+
 def jar_manifest(jar_stream)
   i = 0
   begin
@@ -60,6 +62,26 @@ def war_libs(war_stream)
   end
 end
 
+def ext_libs(ext_stream)
+  Zip::File.open_buffer(ext_stream) do |ext_file|
+    ext_file.glob("*/*.jar") do |jar_entry|
+      if /^(.*?)\/(.*?).jar$/ =~ jar_entry.name
+        ext_name=$1
+        jar_name=$2
+        Tempfile.open(jar_name) do |jar_file|
+          begin
+            jar_entry.extract(jar_file.path) {true}
+            yield ext_name, jar_name, jar_manifest(jar_file)
+          rescue NoManifestError
+            $stderr.puts "#{jar_name} has no manifest, ignoring"
+          end
+        end
+      end
+    end
+  end
+end
+
+
 def check_war(path, rules)
   failed = false
   open(path) do |war_stream|
@@ -68,9 +90,31 @@ def check_war(path, rules)
         if(pattern === jar_name)
           restrictions.each do |key, restriction|
             if restriction === manifest[key]
-              # OK
+              $stderr.puts "OK #{jar_name} #{key} expected to be #{restriction} and was #{manifest[key]}" if $showPasses 
             else
               $stderr.puts "#{jar_name} #{key} expected to be #{restriction} but was #{manifest[key]}"
+              failed = true
+            end
+          end
+        end
+      end
+    end
+  end
+  return !failed
+end
+
+def check_ext(path, rules)
+  failed = false
+  open(path) do |ext_stream|
+    ext_libs(ext_stream) do |ext_name, jar_name, manifest|
+      rules.each do |pattern, restrictions|
+        if(pattern === jar_name)
+          restrictions.each do |key, restriction|
+            if restriction === manifest[key]
+              $stderr.puts "OK #{jar_name} #{key} in #{ext_name} expected to be #{restriction} and was #{manifest[key]}" if $showPasses 
+              # OK
+            else
+              $stderr.puts "FAIL #{jar_name} #{key} in #{ext_name} expected to be #{restriction} but was #{manifest[key]}"
               failed = true
             end
           end
