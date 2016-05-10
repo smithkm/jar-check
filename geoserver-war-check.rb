@@ -19,14 +19,13 @@ Dir.chdir(ARGV[1]) do
       path=$3
       case path
       when "geoserver/externals/geoserver-exts"
-        # YSLD from the geoserver-exts submodule
-        RULES[/^g[st]-ysld.*/]["Git-Revision"]=commit
+        # Nothing here
       when "geoserver/externals/geoserver"
         # The geoserver submodule
-        RULES[/^gs-(?!ysld).*/]["Git-Revision"]=commit
+        RULES[/^gs-.*/]["Git-Revision"]=commit
       when "geoserver/externals/geotools"
         # The geotools submodule
-        RULES[/^gt-(?!ysld).*/]["Git-Revision"]=commit
+        RULES[/^gt-.*/]["Git-Revision"]=commit
       when "geoserver/externals/geowebcache"
         # The geowebcache submodule
         RULES[/^gwc-.*/]["Implementation-Version"]=/.*?\/#{commit}/
