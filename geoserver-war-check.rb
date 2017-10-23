@@ -18,15 +18,15 @@ Dir.chdir(ARGV[1]) do
       commit=$2
       path=$3
       case path
-      when "geoserver/externals/geoserver-exts"
+      when "geoserver/externals/geoserver-exts/geoserver-exts"
         # Nothing here
-      when "geoserver/externals/geoserver"
+      when "geoserver/geoserver/geoserver"
         # The geoserver submodule
         RULES[/^gs-.*/]["Git-Revision"]=commit
-      when "geoserver/externals/geotools"
+      when "geoserver/geotools/geotools"
         # The geotools submodule
         RULES[/^gt-.*/]["Git-Revision"]=commit
-      when "geoserver/externals/geowebcache"
+      when "geoserver/geowebcache/geowebcache"
         # The geowebcache submodule
         RULES[/^gwc-.*/]["Implementation-Version"]=/.*?\/#{commit}/
       end
